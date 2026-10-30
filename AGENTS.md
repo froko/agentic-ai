@@ -23,6 +23,26 @@ building, and make sure the chosen folders are registered in
   Register `packages/*` and `examples/*` in `pnpm-workspace.yaml` before adding
   projects there.
 
+## User stories and the agent team
+
+Features are delivered as user stories in `docs/src/content/docs/stories/` (one
+file per story, status in the frontmatter). A team of four agents works on them;
+each agent is a short role description in `.claude/agents/`, and its know-how
+lives in skills in `.claude/skills/`:
+
+| Agent       | Status change          | Skills                              |
+| ----------- | ---------------------- | ----------------------------------- |
+| `architect` | ready → planned        | `plan-story`, `arc42-documentation` |
+| `coder`     | planned → implemented  | `implement-story`                   |
+| `tester`    | implemented → verified | `verify-story`                      |
+| `reviewer`  | verified → done        | `review-story`                      |
+
+All agents share the `user-stories` skill (story format, statuses, Definition of
+Done). The `deliver-story` skill describes how the main session runs a story
+through the team and commits it. The architecture documentation (arc42 and ADRs)
+lives in `docs/src/content/docs/arc42/` and is owned by the architect.
+Assistants without native skill support can read the `SKILL.md` files directly.
+
 ## Converting to a publishable NuGet library workspace
 
 When the user asks to convert the workspace from the default application layout

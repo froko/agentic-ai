@@ -72,6 +72,10 @@ export default defineConfig({
           ],
         },
         {
+          label: 'User Stories',
+          items: [{ autogenerate: { directory: 'stories' } }],
+        },
+        {
           label: 'Concepts',
           items: [{ autogenerate: { directory: 'concepts' } }],
         },
