@@ -1,0 +1,24 @@
+{
+  "$schema": "./node_modules/nx/schemas/nx-schema.json",
+  "analytics": false,
+  "targetDefaults": {
+    "restore": {
+      "cache": true,
+      "outputs": ["{workspaceRoot}/dist/intermediates/{projectRoot}/obj"]
+    },
+    "format": {
+      "cache": true
+    },
+    "lint": {
+      "cache": true
+    },
+    "build": {
+      "dependsOn": ["^build"],
+      "cache": true
+    },
+    "test": {
+      "cache": true
+    }
+  },
+  "plugins": ["@nx/dotnet"]
+}

@@ -1,0 +1,21 @@
+{
+  "name": "docs",
+  "type": "module",
+  "scripts": {
+    "format": "prettier --write .",
+    "dev": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview",
+    "astro": "astro"
+  },
+  "dependencies": {
+    "@astrojs/starlight": "^0.40.0",
+    "astro": "^6.4.6",
+    "plantuml-encoder": "^1.4.0",
+    "sharp": "^0.35.1",
+    "unist-util-visit": "^5.1.0"
+  },
+  "devDependencies": {
+    "prettier-plugin-astro": "^0.14.1"
+  }
+}
