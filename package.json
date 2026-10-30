@@ -18,6 +18,7 @@
     "lint:workspace": "oxlint --ignore-pattern 'apps/**' --ignore-pattern 'libs/**' --ignore-pattern 'docs/**' --ignore-pattern 'packages/**' --ignore-pattern 'examples/**' && oxfmt --check . '!apps' '!libs' '!docs' '!packages' '!examples'",
     "build": "nx run-many -t build --parallel",
     "test": "nx run-many -t test",
+    "e2e": "nx run-many -t e2e",
     "restore": "nx run-many -t restore",
     "release": "semantic-release"
   },

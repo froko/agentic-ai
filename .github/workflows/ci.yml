@@ -54,3 +54,18 @@ jobs:
       - name: Run affected lint, typecheck, build and test
         run: pnpm exec nx affected -t lint typecheck build test
 
+      # No-ops until the workspace contains a project that depends on @playwright/test
+      - name: Install Playwright browser
+        run: scripts/install-playwright-deps.sh
+
+      - name: Run affected end-to-end tests
+        run: pnpm exec nx affected -t e2e
+
+      - name: Upload Playwright report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: '**/playwright-report'
+          if-no-files-found: ignore
+          retention-days: 7
