@@ -86,10 +86,11 @@ runnable samples that demonstrate them:
 - `packages/` — libraries that are packed and published as NuGet packages
 - `examples/` — sample apps that consume the packages locally
 
-Projects under `packages/` are typically packable — set
-`<IsPackable>true</IsPackable>` (the default for class libraries) and run
-`nx pack <project>` to produce a `.nupkg`. The `@nx/dotnet` plugin exposes a
-`pack` target for every library.
+Packing is opt-in: the root `Directory.Build.props` sets `IsPackable` to
+`false`. Set `<IsPackable>true</IsPackable>` in the `.csproj` of each project
+under `packages/` and run `nx pack <project>` to produce a `.nupkg`. The
+`@nx/dotnet` plugin exposes a `pack` target for every non-test project, but it
+only produces a `.nupkg` for packable ones.
 
 #### Converting from the application layout
 
@@ -128,8 +129,8 @@ workspace ends up inconsistent:
    with the [wrapper script](#recommended-scaffold-with-the-wrapper-script).
 
 4. **Make the libraries packable** — set the NuGet metadata (`PackageId`,
-   `Authors`, `Description`, …) and `<IsPackable>true</IsPackable>` for each
-   library (keep test projects `IsPackable=false`).
+   `Authors`, `Description`, …) and `<IsPackable>true</IsPackable>` in each
+   library's `.csproj` (keep test projects non-packable).
 
 5. **Remove the now-empty `apps/`/`libs/` folders**, then run `pnpm restore`
    followed by `pnpm build`, `pnpm test` and `pnpm format` to verify.
@@ -270,8 +271,8 @@ nx test my-lib-tests
 ## Packing & publishing NuGet packages
 
 When using the publishable-library layout, the `@nx/dotnet` plugin provides a
-`pack` target for every library, which builds a `.nupkg` into the central
-`dist/` output:
+`pack` target that builds a `.nupkg` into the central `dist/` output for every
+project with `<IsPackable>true</IsPackable>`:
 
 ```bash
 # Pack a single package
@@ -281,10 +282,13 @@ nx pack my-package
 nx run-many -t pack
 ```
 
-Push the resulting `.nupkg` to your feed with `dotnet nuget push`, or wire it
-into the semantic-release pipeline for automated publishing. Set package
-metadata (`PackageId`, `Authors`, `Description`, `RepositoryUrl`, …) either per
-project in the `.csproj` or centrally in the root `Directory.Build.props`.
+The release workflow publishes automatically: semantic-release packs every
+packable project and pushes the packages to nuget.org via
+`scripts/publish-nuget.sh`, using the `NUGET_API_KEY` repository secret. Set
+`NUGET_SOURCE` to push to a different feed. When no project is packable (the
+application layout), nothing is published. Set package metadata (`PackageId`,
+`Authors`, `Description`, `RepositoryUrl`, …) either per project in the
+`.csproj` or centrally in the root `Directory.Build.props`.
 
 ## AI assistant support
 

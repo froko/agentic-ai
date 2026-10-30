@@ -20,6 +20,8 @@
   </PropertyGroup>
   <PropertyGroup>
     <Version>1.0.0</Version>
+    <!-- Packing is opt-in: publishable libraries set IsPackable to true in their .csproj -->
+    <IsPackable>false</IsPackable>
   </PropertyGroup>
   <PropertyGroup>
     <RestorePackagesWithLockFile>false</RestorePackagesWithLockFile>

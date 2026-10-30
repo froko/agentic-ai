@@ -44,7 +44,11 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Restore .NET dependencies
+        run: pnpm exec nx run-many -t restore
+
       - name: Release
         run: pnpm release
         env:
           GITHUB_TOKEN: ${{ steps.generate_token.outputs.token }}
+          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}

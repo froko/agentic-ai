@@ -63,11 +63,11 @@ state.
    scaffold fresh projects with the wrapper script instead.
 
 4. **Make libraries packable.** For each project under `packages/`, set the
-   NuGet metadata (`PackageId`, `Authors`, `Description`, …) and ensure
-   `<IsPackable>true</IsPackable>` (the default for class libraries; keep test
-   projects `IsPackable=false`). Shared metadata can go centrally in
-   `Directory.Build.props`. See
-   [Publishing NuGet packages](#publishing-nuget-packages).
+   NuGet metadata (`PackageId`, `Authors`, `Description`, …) and set
+   `<IsPackable>true</IsPackable>` in its `.csproj` (packing is opt-in: the root
+   `Directory.Build.props` defaults `IsPackable` to `false`; keep test projects
+   non-packable). Shared metadata can go centrally in `Directory.Build.props`.
+   See [Publishing NuGet packages](#publishing-nuget-packages).
 
 5. **Remove now-empty `apps/`/`libs/` folders** once their projects have moved.
 
@@ -137,10 +137,17 @@ re-declare the globally-inherited properties, and never put a `Version` on a
 
 ## Publishing NuGet packages
 
-For the publishable-library use case, every library has a `pack` target from the
-`@nx/dotnet` plugin (`nx pack <project>` or `nx run-many -t pack`) that builds a
-`.nupkg` into `dist/`. Set package metadata (`PackageId`, `Authors`,
-`Description`, …) in the `.csproj` or centrally in `Directory.Build.props`.
+For the publishable-library use case, every non-test project has a `pack` target
+from the `@nx/dotnet` plugin (`nx pack <project>` or `nx run-many -t pack`) that
+builds a `.nupkg` into `dist/`. Packing is opt-in: `Directory.Build.props`
+defaults `IsPackable` to `false`, so `pack` only produces a `.nupkg` for
+projects that set `<IsPackable>true</IsPackable>`. Set package metadata
+(`PackageId`, `Authors`, `Description`, …) in the `.csproj` or centrally in
+`Directory.Build.props`.
+
+On release, semantic-release packs all packable projects and pushes them with
+`scripts/publish-nuget.sh` using the `NUGET_API_KEY` repository secret. If no
+`.nupkg` is produced (the application layout), the publish step is skipped.
 
 ## Conventions
 
