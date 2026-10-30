@@ -90,9 +90,9 @@ tsconfig.json     linguist-language=JSON-with-Comments
 # DotNet
 #
 *.cs       text diff=csharp
-*.csproj   text eol=crlf
-*.fsproj   text eol=crlf
-*.sln      text eol=crlf
+*.csproj   text eol=lf
+*.fsproj   text eol=lf
+*.sln      text eol=lf
 
 
 #

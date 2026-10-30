@@ -1,4 +1,4 @@
-namespace SampleLib.Tests;
+﻿namespace SampleLib.Tests;
 
 public class GreeterTests
 {

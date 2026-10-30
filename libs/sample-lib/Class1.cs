@@ -1,4 +1,4 @@
-namespace SampleLib;
+﻿namespace SampleLib;
 
 /// <summary>
 /// A trivial sample type to demonstrate the @nx/dotnet setup.

@@ -85,9 +85,12 @@ The script runs the same `dotnet new` command and then:
 
 1. adds a workspace-standard `project.json` so the project picks up the shared
    Nx targets automatically (a `format` and a `lint` target for every project,
-   plus a coverage-enabled `test` target for test projects), and
+   plus a coverage-enabled `test` target for test projects),
 2. tidies the generated `.csproj` so it matches the repo conventions (see
-   below).
+   below), and
+3. normalizes the generated files to the root `.editorconfig` (UTF-8 with BOM),
+   which not every template follows. It skips the template's automatic restore,
+   which would fail before the tidy step (`NU1008`); `build` restores later.
 
 Using `dotnet new` on its own skips both steps and produces a project without
 the expected `format`/`lint`/`test` targets and with settings that conflict with
@@ -120,7 +123,101 @@ re-declare the globally-inherited properties, and never put a `Version` on a
   `TEST_PROJECT=0`.
 - Any extra arguments are passed straight through to `dotnet new`.
 - Place projects in the folder that matches the use case (see Workspace layout).
-- After creating (or pulling) .NET projects, run `pnpm restore` once.
+- After creating (or pulling) .NET projects, run `pnpm restore` once (`build`
+  and `lint` also restore automatically).
+
+## Creating new JavaScript/TypeScript projects
+
+There is no generator for JS/TS projects; create the `package.json`,
+`tsconfig.json` and sources by hand. A `package.json` in `apps/*` or `libs/*` is
+picked up by Nx automatically and its `scripts` become Nx targets. Configure
+caching, outputs, task dependencies and continuous tasks (dev servers) in the
+`nx` section of the `package.json`; use `"nx": { "name": "…" }` to keep the
+project name consistent with the .NET projects (kebab-case, no npm scope).
+
+Every JS/TS project must define these scripts so it takes part in the
+workspace-wide tasks (`pnpm lint`, `pnpm format`, `nx affected`):
+
+| Script      | Command                           | Purpose                                  |
+| ----------- | --------------------------------- | ---------------------------------------- |
+| `lint`      | `oxlint && oxfmt --check`         | lint + fail on unformatted code          |
+| `format`    | `oxfmt`                           | write formatting fixes                   |
+| `typecheck` | `tsc --noEmit`                    | type errors (part of `pnpm affected`)    |
+| `test`      | e.g. `vitest run`                 | unit tests, if the project has any       |
+| `build`     | e.g. `tsc --noEmit && vite build` | production build, if the project has one |
+| `e2e`       | e.g. `playwright test`            | end-to-end tests (e2e projects only)     |
+
+- oxlint and oxfmt find the root `oxlint.config.ts`/`oxfmt.config.ts` from any
+  project folder; projects need no config of their own.
+- Put generated code into a `generated/` folder; it is excluded from oxfmt and
+  oxlint.
+- Build output goes to the central `dist/` folder (e.g. Vite
+  `build.outDir: '../../dist/apps/<project>'`), like the .NET projects.
+- Reference workspace packages with `"workspace:*"` and run `pnpm install`
+  afterwards.
+
+## Known pitfalls
+
+Pitfalls of a full-stack application (ASP.NET Core minimal API + EF Core/SQLite
+
+- React/Vite + generated OpenAPI client + Playwright) in this workspace. Check
+  them before choosing an approach.
+
+**Environment**
+
+- Arch Linux's `dotnet-sdk` lacks the ASP.NET Core targeting pack: web projects
+  fail with `NETSDK1226` until `aspnet-targeting-pack` is installed. This needs
+  `sudo` — ask the user.
+- Playwright's Chromium fails with `error while loading shared libraries` on
+  minimal distributions (e.g. Arch under WSL2). The user has to run
+  `scripts/install-playwright-deps.sh` (needs `sudo`); WSL2 itself is fine.
+- Python is not available on every machine; write helper scripts in Bash or
+  Node.
+
+**ASP.NET Core / EF Core**
+
+- Build-time OpenAPI generation (`Microsoft.Extensions.ApiDescription.Server`)
+  starts the app and runs code _after_ `builder.Build()`. Guard startup work
+  such as migrations with
+  `Assembly.GetEntryAssembly()?.GetName().Name != "GetDocument.Insider"`.
+- Set `JsonNumberHandling.Strict` in `ConfigureHttpJsonOptions`; the web default
+  lets numbers be strings, so OpenAPI types every number as `integer | string`.
+  Add `JsonStringEnumConverter` for string enums.
+- Optional request properties need a default (`string? Notes = null`), otherwise
+  OpenAPI marks them as required-but-nullable.
+- `dotnet ef` works despite the redirected `obj/` folder. Add a `dotnet-ef`
+  local tool (`dotnet-tools.json`) and wrap it in an Nx target that forwards its
+  arguments.
+- C# and MSBuild files are UTF-8 **with BOM** (`.editorconfig`), as Visual
+  Studio and EF Core write them; the `lint` target fails with `CHARSET` on a
+  `.cs` file without one. Files you create with a plain text writer usually lack
+  the BOM — run the project's `format` target afterwards.
+- `restore` is an opt-in target in `@nx/dotnet` 24; it is enabled in `nx.json`
+  (`"restore": true`) and `build`/`lint` depend on it. If `pnpm restore` ever
+  reports `0 tasks`, that option was lost (e.g. by a plugin update).
+- `@nx/dotnet` already infers a continuous `watch` target (`dotnet watch`); use
+  it as the dependency of a frontend `dev` target instead of writing your own.
+- Integration tests with `WebApplicationFactory` can point the app at a
+  temporary SQLite file via `builder.UseSetting("ConnectionStrings:…", …)`.
+
+**TypeScript / frontend**
+
+- Use TypeScript `~5.9.3`. TypeScript 7 (the native Go port) has no JS compiler
+  API, which tools like `openapi-typescript` require.
+- Nx creates targets only from existing `package.json` scripts — a project
+  without `lint`/`format` scripts is silently skipped by `pnpm lint`.
+- TanStack Router's `<Link>` sets `aria-current` itself and overwrites a custom
+  value; use a `data-*` attribute for custom active styling.
+
+**Playwright**
+
+- Run e2e tests against their own API/frontend ports and a throwaway database so
+  they work next to a running dev server, and use unique test data (e.g.
+  timestamps) so reruns pass.
+- Playwright workers re-evaluate `playwright.config.ts`; guard one-time setup
+  (like deleting the test database) with `!process.env.TEST_WORKER_INDEX`.
+- The Nx terminal UI hides test output; use `--output-style=static` to see
+  results.
 
 ## Publishing NuGet packages
 
@@ -138,7 +235,8 @@ On release, semantic-release packs all packable projects and pushes them with
 
 ## Conventions
 
-- This is an Nx + pnpm monorepo containing .NET projects and an Astro docs site.
+- This is an Nx + pnpm monorepo for .NET and JavaScript/TypeScript projects,
+  plus an Astro docs site.
 - Shared .NET defaults (`TargetFramework`, `Nullable`, `ImplicitUsings`, central
   `dist/` output) live in the root `Directory.Build.props` — do not duplicate
   them per project.
@@ -150,11 +248,16 @@ On release, semantic-release packs all packable projects and pushes them with
 - Everything else (JavaScript/TypeScript, Markdown, JSON, YAML) is formatted by
   **oxfmt** (`oxfmt.config.ts`, based on `@froko/oxfmt-config`) and
   JavaScript/TypeScript is linted by **oxlint** (`oxlint.config.ts`, based on
-  `@froko/oxlint-config`). Both run from the workspace root: `pnpm format` runs
-  `oxfmt` before the Nx `format` targets and `pnpm lint` runs `oxlint` before
-  the Nx `lint` targets. Do not add Prettier or ESLint.
+  `@froko/oxlint-config`). Every JS/TS project runs them through its own `lint`
+  and `format` targets (see
+  [Creating new JavaScript/TypeScript projects](#creating-new-javascripttypescript-projects)).
+  Files outside the projects (root configs, `README.md`, `AGENTS.md`, workflows)
+  are covered by `pnpm format:workspace` and `pnpm lint:workspace`;
+  `pnpm format` and `pnpm lint` run both. Do not add Prettier or ESLint.
 - Commit messages follow
   [Conventional Commits](https://www.conventionalcommits.org/).
 - Common tasks: `pnpm build`, `pnpm test`, `pnpm lint`, `pnpm format`,
-  `pnpm restore` (each maps to an `nx run-many` target; `lint` and `format` also
-  run oxlint/oxfmt first).
+  `pnpm e2e`, `pnpm restore` (each maps to an `nx run-many` target; `lint` and
+  `format` also cover the workspace-level files).
+- Before finishing a change, run `pnpm format` and `pnpm affected` (lint,
+  typecheck, build and test of the affected projects).

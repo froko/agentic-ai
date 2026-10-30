@@ -62,8 +62,11 @@ if [[ -z "$OUTPUT_DIR" ]]; then
 fi
 
 # --- scaffold the .NET project ------------------------------------------------
-echo "==> dotnet new $TEMPLATE ${DOTNET_ARGS[*]}"
-dotnet new "$TEMPLATE" "${DOTNET_ARGS[@]}"
+# --no-restore: the template still pins package versions inline, so its
+# automatic restore fails under CPM (NU1008) and leaves a broken restore state
+# in obj/. Restore after the tidy step instead (`pnpm restore`).
+echo "==> dotnet new $TEMPLATE --no-restore ${DOTNET_ARGS[*]}"
+dotnet new "$TEMPLATE" --no-restore "${DOTNET_ARGS[@]}"
 
 # --- tidy up the generated .csproj --------------------------------------------
 # `dotnet new` emits properties that are already defined globally in the root
@@ -79,129 +82,89 @@ dotnet new "$TEMPLATE" "${DOTNET_ARGS[@]}"
 echo "==> tidying generated .csproj (inherit Directory.Build.props + CPM)"
 PACKAGES_PROPS="$WORKSPACE_ROOT/Directory.Packages.props" \
 PROJECT_OUTPUT_DIR="$WORKSPACE_ROOT/$OUTPUT_DIR" \
-  python3 - <<'PY'
-import os
-import re
-import sys
-import xml.etree.ElementTree as ET
+  node - <<'JS'
+const fs = require('node:fs')
+const path = require('node:path')
 
-project_dir = os.environ["PROJECT_OUTPUT_DIR"]
-packages_props = os.environ["PACKAGES_PROPS"]
+const projectDir = process.env.PROJECT_OUTPUT_DIR
+const packagesProps = process.env.PACKAGES_PROPS
 
-# Properties that are defined centrally in the root Directory.Build.props and
-# therefore must not be repeated in individual project files.
-INHERITED_PROPERTIES = {"TargetFramework", "ImplicitUsings", "Nullable"}
+// Properties that are defined centrally in the root Directory.Build.props and
+// therefore must not be repeated in individual project files.
+const INHERITED_PROPERTIES = new Set(['TargetFramework', 'ImplicitUsings', 'Nullable'])
 
-# Locate the .csproj that dotnet new just created in the output directory.
-csprojs = [
-    os.path.join(project_dir, f)
-    for f in os.listdir(project_dir)
-    if f.endswith((".csproj", ".fsproj", ".vbproj"))
-]
-if not csprojs:
-    sys.exit(0)
-csproj = csprojs[0]
+// Locate the .csproj that dotnet new just created in the output directory.
+const projectFile = fs
+  .readdirSync(projectDir)
+  .find((f) => /\.(csproj|fsproj|vbproj)$/.test(f))
+if (!projectFile) process.exit(0)
+const csproj = path.join(projectDir, projectFile)
 
-with open(csproj, "r", encoding="utf-8") as fh:
-    original = fh.read()
+const original = fs.readFileSync(csproj, 'utf8')
 
-# --- 1. strip inherited properties --------------------------------------------
-# Remove lines like "<TargetFramework>net10.0</TargetFramework>".
-lines = original.splitlines()
-kept = []
-for line in lines:
-    m = re.match(r"\s*<([A-Za-z0-9_]+)>.*</\1>\s*$", line)
-    if m and m.group(1) in INHERITED_PROPERTIES:
-        continue
-    kept.append(line)
-content = "\n".join(kept)
+// --- 1. strip inherited properties --------------------------------------------
+// Remove lines like "<TargetFramework>net10.0</TargetFramework>".
+let content = original
+  .split(/\r?\n/)
+  .filter((line) => {
+    const m = line.match(/^\s*<([A-Za-z0-9_]+)>.*<\/\1>\s*$/)
+    return !(m && INHERITED_PROPERTIES.has(m[1]))
+  })
+  .join('\n')
 
-# Drop any PropertyGroup that is now empty (only whitespace between the tags).
-# Consume the group's own trailing newline but leave the next line's
-# indentation untouched.
-content = re.sub(
-    r"[ \t]*<PropertyGroup>[ \t\r\n]*</PropertyGroup>[ \t]*\r?\n?",
-    "",
-    content,
-)
+// Drop any PropertyGroup that is now empty (only whitespace between the tags).
+// Consume the group's own trailing newline but leave the next line's
+// indentation untouched.
+content = content.replace(/[ \t]*<PropertyGroup>[ \t\r\n]*<\/PropertyGroup>[ \t]*\r?\n?/g, '')
 
-# Collapse 3+ blank lines that may result from the removals down to one.
-content = re.sub(r"\n{3,}", "\n\n", content)
+// Collapse 3+ blank lines that may result from the removals down to one.
+content = content.replace(/\n{3,}/g, '\n\n')
 
-# --- 2. migrate inline PackageReference versions to CPM -----------------------
-# Match: <PackageReference Include="X" Version="Y" />  (attr order independent).
-pkg_versions = {}
+// --- 2. migrate inline PackageReference versions to CPM -----------------------
+// Match: <PackageReference Include="X" Version="Y" /> (attr order independent),
+// self-closing or not, and remove the Version attribute.
+const pkgVersions = new Map()
+content = content.replace(/<PackageReference\b[^>]*?>/g, (tag) => {
+  const inc = tag.match(/Include="([^"]+)"/)
+  const ver = tag.match(/Version="([^"]+)"/)
+  if (inc && ver) pkgVersions.set(inc[1], ver[1])
+  return tag.replace(/\s+Version="[^"]+"/, '')
+})
 
+if (!content.endsWith('\n')) content += '\n'
+// The root .editorconfig wants project files as UTF-8 with BOM; not every
+// template writes one (e.g. webapi).
+if (!content.startsWith('﻿')) content = '﻿' + content
+fs.writeFileSync(csproj, content)
 
-def strip_version(match):
-    tag = match.group(0)
-    inc = re.search(r'Include="([^"]+)"', tag)
-    ver = re.search(r'Version="([^"]+)"', tag)
-    if inc and ver:
-        pkg_versions[inc.group(1)] = ver.group(1)
-    # Remove the Version="..." attribute (and the surrounding whitespace).
-    return re.sub(r'\s+Version="[^"]+"', "", tag)
+// --- 3. record the package versions centrally ---------------------------------
+if (pkgVersions.size > 0) {
+  let props = fs.readFileSync(packagesProps, 'utf8')
+  const existing = new Set([...props.matchAll(/<PackageVersion\s+Include="([^"]+)"/g)].map((m) => m[1]))
+  const added = [...pkgVersions].filter(([name]) => !existing.has(name)).sort(([a], [b]) => a.localeCompare(b))
 
-
-content = re.sub(r"<PackageReference\b[^>]*?/>", strip_version, content)
-content = re.sub(
-    r"<PackageReference\b[^>]*?>",
-    lambda m: re.sub(r'\s+Version="[^"]+"', "", m.group(0))
-    if "Version=" in m.group(0)
-    else m.group(0),
-    content,
-)
-# Capture versions from any non-self-closing PackageReference tags too.
-for m in re.finditer(r"<PackageReference\b[^>]*?>", original):
-    inc = re.search(r'Include="([^"]+)"', m.group(0))
-    ver = re.search(r'Version="([^"]+)"', m.group(0))
-    if inc and ver:
-        pkg_versions.setdefault(inc.group(1), ver.group(1))
-
-if not content.endswith("\n"):
-    content += "\n"
-
-with open(csproj, "w", encoding="utf-8") as fh:
-    fh.write(content)
-
-# --- 3. record the package versions centrally ---------------------------------
-if pkg_versions:
-    tree = ET.parse(packages_props)
-    root = tree.getroot()
-
-    # Find (or create) an ItemGroup to hold the PackageVersion entries.
-    item_group = root.find("ItemGroup")
-    if item_group is None:
-        item_group = ET.SubElement(root, "ItemGroup")
-
-    existing = {
-        el.get("Include")
-        for el in root.iter("PackageVersion")
-        if el.get("Include")
+  if (added.length > 0) {
+    const entries = added.map(([name, version]) => `    <PackageVersion Include="${name}" Version="${version}" />`)
+    // Append to the ItemGroup that already holds PackageVersion entries, or
+    // create a new ItemGroup before the closing </Project>.
+    const group = props.match(/([ \t]*<ItemGroup>[\s\S]*?<PackageVersion\b[\s\S]*?)(\r?\n[ \t]*<\/ItemGroup>)/)
+    if (group) {
+      const lines = group[1].split('\n')
+      const header = lines.shift()
+      const name = (line) => (line.match(/Include="([^"]+)"/)?.[1] ?? '').toLowerCase()
+      const sorted = [...lines, ...entries].sort((a, b) => (name(a) < name(b) ? -1 : name(a) > name(b) ? 1 : 0))
+      props = props.replace(group[0], [header, ...sorted].join('\n') + group[2])
+    } else {
+      props = props.replace(/<\/Project>/, `  <ItemGroup>\n${entries.join('\n')}\n  </ItemGroup>\n</Project>`)
     }
-    added = []
-    for name, version in sorted(pkg_versions.items()):
-        if name in existing:
-            continue
-        el = ET.SubElement(item_group, "PackageVersion")
-        el.set("Include", name)
-        el.set("Version", version)
-        added.append(f"{name} {version}")
-
-    if added:
-        ET.indent(tree, space="  ")
-        tree.write(packages_props, encoding="unicode", xml_declaration=False)
-        # ElementTree writes without a trailing newline; add one for cleanliness.
-        with open(packages_props, "r", encoding="utf-8") as fh:
-            data = fh.read()
-        if not data.endswith("\n"):
-            with open(packages_props, "a", encoding="utf-8") as fh:
-                fh.write("\n")
-        print(
-            "    added PackageVersion entries to Directory.Packages.props: "
-            + ", ".join(added)
-        )
-PY
+    fs.writeFileSync(packagesProps, props)
+    console.log(
+      '    added PackageVersion entries to Directory.Packages.props: ' +
+        added.map(([n, v]) => `${n} ${v}`).join(', '),
+    )
+  }
+}
+JS
 
 # --- derive the Nx project name & relative depth ------------------------------
 # Nx project name = the output directory's basename (matches the existing
@@ -294,6 +257,13 @@ else
 }
 EOF
 fi
+
+# --- normalize the generated sources ------------------------------------------
+# Some templates (e.g. webapi) write .cs files without the UTF-8 BOM that the
+# root .editorconfig requires, which would make the new project's `lint`
+# target fail right away. Folder mode needs no restore.
+echo "==> normalizing sources to the repo .editorconfig (dotnet format whitespace)"
+dotnet format whitespace --folder "$WORKSPACE_ROOT/$OUTPUT_DIR"
 
 echo ""
 echo "Done. Next steps:"

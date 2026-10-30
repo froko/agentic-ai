@@ -23,7 +23,7 @@
       ]
     },
     "build": {
-      "dependsOn": ["^build"],
+      "dependsOn": ["restore", "^build"],
       "cache": true
     },
     "test": {
@@ -33,5 +33,12 @@
       "cache": true
     }
   },
-  "plugins": ["@nx/dotnet"]
+  "plugins": [
+    {
+      "plugin": "@nx/dotnet",
+      "options": {
+        "restore": true
+      }
+    }
+  ]
 }

@@ -24,6 +24,14 @@ A solid starting point for your new Nx based mixed .NET/JavaScript MonoRepo.
 - [pnpm](https://pnpm.io/)
 - [.NET SDK 10.0+](https://dotnet.microsoft.com/) (required by the `@nx/dotnet`
   plugin)
+- For Playwright end-to-end tests: Chromium and its system libraries. Run
+  `scripts/install-playwright-deps.sh` once after adding a Playwright project;
+  it uses `pacman`, `dnf` or Playwright's own installer (Debian/Ubuntu), so it
+  also works on minimal WSL2 distributions that ship without desktop libraries.
+
+> **Arch Linux:** the `dotnet-sdk` package does not include the ASP.NET Core
+> targeting pack; install `aspnet-targeting-pack` as well, otherwise web
+> projects fail with `NETSDK1226`.
 
 ## Getting Started
 
@@ -59,13 +67,15 @@ A solid starting point for your new Nx based mixed .NET/JavaScript MonoRepo.
 ## Available commands on the root level
 
 - `pnpm install` - Install all dependencies
-- `pnpm format` - Format all projects
-- `pnpm lint` - Lint all projects
+- `pnpm format` - Format all projects and the workspace-level files
+- `pnpm lint` - Lint and check the formatting of all projects and the
+  workspace-level files
 - `pnpm build` - Build all projects
-- `pnpm test` - Run all tests
+- `pnpm test` - Run all unit and integration tests
+- `pnpm e2e` - Run all end-to-end tests
 - `pnpm restore` - Restore NuGet packages for all .NET projects
-- `pnpm affected` - Lint, Build & Test all affected projects
-- `pnpm all` - Lint, Build & Test all projects
+- `pnpm affected` - Lint, Typecheck, Build & Test all affected projects
+- `pnpm all` - Lint, Typecheck, Build & Test all projects
 
 ## Workspace structure
 
