@@ -1,12 +1,12 @@
 {
-  "name": "nx-dotnet-monorepo",
+  "name": "agentic-ai",
   "version": "0.0.1",
-  "description": ".NET/JS Monorepo starter project with Nx",
+  "description": "Agentic AI experiments in an Nx .NET/JS monorepo",
   "license": "MIT",
   "author": "Patrick Ineichen",
   "repository": {
     "type": "git",
-    "url": "https://github.com/froko/nx-dotnet-monorepo.git"
+    "url": "https://github.com/froko/agentic-ai.git"
   },
   "type": "module",
   "scripts": {

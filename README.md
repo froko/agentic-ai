@@ -1,6 +1,8 @@
-# Nx .NET/JS MonoRepo starter project
+# agentic-ai
 
-A solid starting point for your new Nx based mixed .NET/JavaScript MonoRepo.
+Agentic AI experiments in an Nx based mixed .NET/JavaScript monorepo, created
+from the [nx-dotnet-monorepo](https://github.com/froko/nx-dotnet-monorepo)
+starter.
 
 ## What's included?
 

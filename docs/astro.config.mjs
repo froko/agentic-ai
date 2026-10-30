@@ -21,12 +21,12 @@ export default defineConfig({
   },
   integrations: [
     starlight({
-      title: 'nx-dotnet-monorepo',
+      title: 'agentic-ai',
       social: [
         {
           icon: 'github',
           label: 'GitHub',
-          href: 'https://github.com/froko/nx-dotnet-monorepo',
+          href: 'https://github.com/froko/agentic-ai',
         },
       ],
       sidebar: [
