@@ -10,13 +10,26 @@
       "cache": true
     },
     "lint": {
-      "cache": true
+      "cache": true,
+      "inputs": [
+        "default",
+        "{workspaceRoot}/.editorconfig",
+        "{workspaceRoot}/.gitignore",
+        "{workspaceRoot}/oxfmt.config.ts",
+        "{workspaceRoot}/oxlint.config.ts",
+        {
+          "externalDependencies": ["oxfmt", "oxlint"]
+        }
+      ]
     },
     "build": {
       "dependsOn": ["^build"],
       "cache": true
     },
     "test": {
+      "cache": true
+    },
+    "typecheck": {
       "cache": true
     }
   },

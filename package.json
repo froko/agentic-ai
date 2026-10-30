@@ -2,30 +2,35 @@
   "name": "nx-dotnet-monorepo",
   "version": "0.0.1",
   "description": ".NET/JS Monorepo starter project with Nx",
+  "license": "MIT",
   "author": "Patrick Ineichen",
   "repository": {
     "type": "git",
     "url": "https://github.com/froko/nx-dotnet-monorepo.git"
   },
-  "license": "MIT",
+  "type": "module",
   "scripts": {
-    "format": "prettier . --write && nx run-many -t format --parallel",
-    "affected": "nx affected -t lint,build,test",
-    "all": "nx run-many -t lint,build,test",
-    "lint": "nx run-many -t lint --parallel",
+    "format": "nx run-many -t format --parallel && pnpm format:workspace",
+    "format:workspace": "oxfmt . '!apps' '!libs' '!docs' '!packages' '!examples'",
+    "affected": "nx affected -t lint,typecheck,build,test",
+    "all": "nx run-many -t lint,typecheck,build,test",
+    "lint": "nx run-many -t lint --parallel && pnpm lint:workspace",
+    "lint:workspace": "oxlint --ignore-pattern 'apps/**' --ignore-pattern 'libs/**' --ignore-pattern 'docs/**' --ignore-pattern 'packages/**' --ignore-pattern 'examples/**' && oxfmt --check . '!apps' '!libs' '!docs' '!packages' '!examples'",
     "build": "nx run-many -t build --parallel",
     "test": "nx run-many -t test",
     "restore": "nx run-many -t restore",
     "release": "semantic-release"
   },
   "devDependencies": {
-    "@froko/prettier-config": "^3.2.1",
+    "@froko/oxfmt-config": "^3.2.1",
+    "@froko/oxlint-config": "^3.2.1",
     "@nx/dotnet": "24.0.2",
     "@semantic-release/changelog": "^7.0.0",
     "@semantic-release/exec": "^7.1.0",
     "@semantic-release/git": "^11.0.1",
     "nx": "24.0.2",
-    "prettier": "^3.9.10",
+    "oxfmt": "^0.75.0",
+    "oxlint": "^1.90.0",
     "semantic-release": "^25.0.9"
   },
   "packageManager": "pnpm@11.6.0+sha512.9a36518224080c6fe5165afdcfe79bfa118c29be703f3f462b1e32efe1e98e47e8750b148e08286250aad4113cc7993ca413c4e2cd447752708c2ee5751bc95f"

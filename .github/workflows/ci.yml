@@ -44,11 +44,13 @@ jobs:
 
       - uses: nrwl/nx-set-shas@v5
 
-      - name: Check formatting
-        run: pnpm exec nx format:check
+      # Project files are linted and format-checked by the affected `lint` targets below
+      - name: Lint and check formatting of workspace-level files
+        run: pnpm lint:workspace
 
       - name: Restore .NET dependencies
         run: pnpm exec nx run-many -t restore
 
-      - name: Run affected lint, build and test
-        run: pnpm exec nx affected -t lint build test
+      - name: Run affected lint, typecheck, build and test
+        run: pnpm exec nx affected -t lint typecheck build test
+

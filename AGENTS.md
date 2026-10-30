@@ -41,20 +41,7 @@ state.
      - 'docs'
    ```
 
-2. **`.prettierignore`** — replace the `apps` and `libs` lines with `packages`
-   and `examples` (keep `docs` and the other entries) so the new folders are
-   ignored exactly as the old ones were:
-
-   ```
-   packages
-   examples
-   docs
-
-   CHANGELOG.md
-   pnpm-lock.yaml
-   ```
-
-3. **Move existing .NET projects.** Relocate any libraries from `libs/` into
+2. **Move existing .NET projects.** Relocate any libraries from `libs/` into
    `packages/` and any applications from `apps/` into `examples/` (the sample
    ships in `libs/sample-lib` and `libs/sample-lib-tests`). Use `git mv` so
    history is preserved, then fix the relative `$schema` path and any
@@ -62,16 +49,16 @@ state.
    `.csproj` files. If the user prefers a clean slate, delete the samples and
    scaffold fresh projects with the wrapper script instead.
 
-4. **Make libraries packable.** For each project under `packages/`, set the
+3. **Make libraries packable.** For each project under `packages/`, set the
    NuGet metadata (`PackageId`, `Authors`, `Description`, …) and set
    `<IsPackable>true</IsPackable>` in its `.csproj` (packing is opt-in: the root
    `Directory.Build.props` defaults `IsPackable` to `false`; keep test projects
    non-packable). Shared metadata can go centrally in `Directory.Build.props`.
    See [Publishing NuGet packages](#publishing-nuget-packages).
 
-5. **Remove now-empty `apps/`/`libs/` folders** once their projects have moved.
+4. **Remove now-empty `apps/`/`libs/` folders** once their projects have moved.
 
-6. **Restore and verify.** Run `pnpm restore`, then `pnpm build`, `pnpm test`,
+5. **Restore and verify.** Run `pnpm restore`, then `pnpm build`, `pnpm test`,
    and `pnpm format` to confirm the workspace is consistent after the move.
 
 After the conversion, create new projects in `packages/` (libraries/tests) and
@@ -160,7 +147,14 @@ On release, semantic-release packs all packable projects and pushes them with
 - For .NET projects the `format` target runs `dotnet format` (writes fixes) and
   the `lint` target runs `dotnet format --verify-no-changes --no-restore` (fails
   if the code is not formatted). Both live in each project's `project.json`.
+- Everything else (JavaScript/TypeScript, Markdown, JSON, YAML) is formatted by
+  **oxfmt** (`oxfmt.config.ts`, based on `@froko/oxfmt-config`) and
+  JavaScript/TypeScript is linted by **oxlint** (`oxlint.config.ts`, based on
+  `@froko/oxlint-config`). Both run from the workspace root: `pnpm format` runs
+  `oxfmt` before the Nx `format` targets and `pnpm lint` runs `oxlint` before
+  the Nx `lint` targets. Do not add Prettier or ESLint.
 - Commit messages follow
   [Conventional Commits](https://www.conventionalcommits.org/).
 - Common tasks: `pnpm build`, `pnpm test`, `pnpm lint`, `pnpm format`,
-  `pnpm restore` (each maps to an `nx run-many` target).
+  `pnpm restore` (each maps to an `nx run-many` target; `lint` and `format` also
+  run oxlint/oxfmt first).

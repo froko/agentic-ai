@@ -1,6 +1,8 @@
 // @ts-check
-import { defineConfig } from 'astro/config'
+
 import starlight from '@astrojs/starlight'
+import { defineConfig } from 'astro/config'
+
 import remarkPlantuml from './src/plugins/remark-plantuml.mjs'
 
 // https://astro.build/config

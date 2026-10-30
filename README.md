@@ -9,6 +9,10 @@ A solid starting point for your new Nx based mixed .NET/JavaScript MonoRepo.
 - .NET support via the official
   [`@nx/dotnet`](https://nx.dev/docs/technologies/dotnet/introduction) plugin
   (targeting `net10.0`, centralized build output to `dist/`)
+- [oxfmt](https://oxc.rs/docs/guide/usage/formatter) for formatting
+  JavaScript/TypeScript, Markdown, JSON and YAML (`@froko/oxfmt-config` preset)
+- [oxlint](https://oxc.rs/docs/guide/usage/linter) for linting
+  JavaScript/TypeScript (`@froko/oxlint-config` preset)
 - semantic-release
 - GitHub Actions for linting PR title with Conventional Commit rules, CI &
   Release
@@ -108,19 +112,7 @@ workspace ends up inconsistent:
      - 'docs'
    ```
 
-2. **`.prettierignore`** — replace the `apps` and `libs` lines with `packages`
-   and `examples` (keep `docs` and the rest):
-
-   ```
-   packages
-   examples
-   docs
-
-   CHANGELOG.md
-   pnpm-lock.yaml
-   ```
-
-3. **Move existing projects** — relocate libraries from `libs/` into `packages/`
+2. **Move existing projects** — relocate libraries from `libs/` into `packages/`
    and apps from `apps/` into `examples/` (use `git mv` to preserve history),
    then fix the relative `$schema` path and any `ProjectReference`/`reference`
    paths in the moved `project.json`/`.csproj` files. The template ships a
@@ -128,11 +120,11 @@ workspace ends up inconsistent:
    If you'd rather start clean, delete the samples and scaffold fresh projects
    with the [wrapper script](#recommended-scaffold-with-the-wrapper-script).
 
-4. **Make the libraries packable** — set the NuGet metadata (`PackageId`,
+3. **Make the libraries packable** — set the NuGet metadata (`PackageId`,
    `Authors`, `Description`, …) and `<IsPackable>true</IsPackable>` in each
    library's `.csproj` (keep test projects non-packable).
 
-5. **Remove the now-empty `apps/`/`libs/` folders**, then run `pnpm restore`
+4. **Remove the now-empty `apps/`/`libs/` folders**, then run `pnpm restore`
    followed by `pnpm build`, `pnpm test` and `pnpm format` to verify.
 
 > Working with an AI assistant? `AGENTS.md` documents this same conversion
